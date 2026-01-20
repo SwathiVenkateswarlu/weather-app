@@ -1,6 +1,7 @@
 import javafx.application.Application;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -15,124 +16,91 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) {
 
+        Label title = new Label("Weather App");
+        title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
+
         TextField cityField = new TextField();
         cityField.setPromptText("Enter city name");
 
+        // 🔵 BLUE BUTTON
         Button getWeatherBtn = new Button("Get Weather");
+        getWeatherBtn.setStyle(
+                "-fx-background-color: #2196F3;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 14px;" +
+                        "-fx-padding: 8 24;" +
+                        "-fx-background-radius: 8;"
+        );
 
-        Label iconLabel = new Label();
+        ImageView weatherIcon = new ImageView();
+        weatherIcon.setFitWidth(150);
+        weatherIcon.setFitHeight(150);
+        weatherIcon.setPreserveRatio(true);
+
         Label tempLabel = new Label("Temperature: --");
         Label humidityLabel = new Label("Humidity: --");
-        Label conditionLabel = new Label("Condition:");
-
-        // Load images (from src/images/)
-        Image sunImg = new Image(getClass().getResourceAsStream("/images/sun.png"));
-        Image cloudImg = new Image(getClass().getResourceAsStream("/images/cloud.png"));
-        Image rainImg = new Image(getClass().getResourceAsStream("/images/rain.png"));
-        Image snowImg = new Image(getClass().getResourceAsStream("/images/snow.png"));
-        Image stormImg = new Image(getClass().getResourceAsStream("/images/strom.png"));
-        Image unknownImg = new Image(getClass().getResourceAsStream("/images/unknown.png"));
+        Label conditionLabel = new Label("");
 
         getWeatherBtn.setOnAction(e -> {
+            String city = cityField.getText().trim();
+            if (city.isEmpty()) return;
 
-            String city = cityField.getText();
-
-            if (city == null || city.trim().isEmpty()) {
-                conditionLabel.setText("Condition: Please enter city name");
-                conditionLabel.setStyle("-fx-text-fill: red;");
-                iconLabel.setGraphic(new ImageView(unknownImg));
-                return;
-            }
-
-            conditionLabel.setText("Condition: Loading...");
-            conditionLabel.setStyle("-fx-text-fill: black;");
-            getWeatherBtn.setDisable(true);
-
-            Task<WeatherResponse> task = new Task<>() {
+            Task<Weather> task = new Task<>() {
                 @Override
-                protected WeatherResponse call() {
-                    return WeatherService.getWeather(city.trim());
+                protected Weather call() throws Exception {
+                    return WeatherService.getWeather(city);
                 }
             };
 
-            task.setOnSucceeded(event -> {
-                getWeatherBtn.setDisable(false);
+            task.setOnSucceeded(ev -> {
+                Weather w = task.getValue();
+                tempLabel.setText("Temperature: " + w.getTemperature() + " °C");
+                humidityLabel.setText("Humidity: " + w.getHumidity() + " %");
+                conditionLabel.setText("Condition: " + w.getCondition());
+                conditionLabel.setStyle("-fx-text-fill: black;");
 
-                WeatherResponse data = task.getValue();
-
-                if (data == null || data.main == null || data.weather == null) {
-                    tempLabel.setText("Temperature: --");
-                    humidityLabel.setText("Humidity: --");
-                    conditionLabel.setText("Condition: Invalid city or network error");
-                    conditionLabel.setStyle("-fx-text-fill: red;");
-                    iconLabel.setGraphic(new ImageView(unknownImg));
-                    return;
-                }
-
-                tempLabel.setText("Temperature: " + data.main.temp + "°C");
-                humidityLabel.setText("Humidity: " + data.main.humidity + "%");
-
-                String desc = data.weather[0].description.toLowerCase();
-                conditionLabel.setText("Condition: " + desc);
-                conditionLabel.setStyle("-fx-text-fill: green;");
-
-                ImageView iconView;
-
-                if (desc.contains("clear")) {
-                    iconView = new ImageView(sunImg);
-                } else if (desc.contains("cloud")) {
-                    iconView = new ImageView(cloudImg);
-                } else if (desc.contains("rain")) {
-                    iconView = new ImageView(rainImg);
-                } else if (desc.contains("snow")) {
-                    iconView = new ImageView(snowImg);
-                } else if (desc.contains("storm") || desc.contains("thunder")) {
-                    iconView = new ImageView(stormImg);
-                } else if (
-                        desc.contains("haze") ||
-                                desc.contains("mist") ||
-                                desc.contains("fog") ||
-                                desc.contains("smoke")
-                ) {
-                    iconView = new ImageView(cloudImg);
-                } else {
-                    iconView = new ImageView(unknownImg);
-                }
-
-                iconView.setFitWidth(80);
-                iconView.setFitHeight(80);
-                iconLabel.setGraphic(iconView);
+                weatherIcon.setImage(new Image(
+                        getClass().getResourceAsStream("/images/" + w.getIcon())
+                ));
             });
 
-            task.setOnFailed(event -> {
-                getWeatherBtn.setDisable(false);
+            task.setOnFailed(ev -> {
                 tempLabel.setText("Temperature: --");
                 humidityLabel.setText("Humidity: --");
-                conditionLabel.setText("Condition: Network error");
+                conditionLabel.setText("Condition: Invalid city or network error");
                 conditionLabel.setStyle("-fx-text-fill: red;");
-                iconLabel.setGraphic(new ImageView(unknownImg));
+
+                weatherIcon.setImage(new Image(
+                        getClass().getResourceAsStream("/images/unknown.png")
+                ));
             });
 
             new Thread(task).start();
         });
 
-        VBox layout = new VBox(12,
+        VBox root = new VBox(12,
+                title,
                 cityField,
                 getWeatherBtn,
-                iconLabel,
+                weatherIcon,
                 tempLabel,
                 humidityLabel,
                 conditionLabel
         );
 
-        layout.setPadding(new Insets(20));
+        root.setPadding(new Insets(20));
+        root.setAlignment(Pos.TOP_CENTER);
 
+        root.setStyle(
+                "-fx-background-color: linear-gradient(to bottom,  #BBDEFB, #FFFFFF);"
+        );
+
+        stage.setScene(new Scene(root, 420, 560));
         stage.setTitle("Weather App");
-        stage.setScene(new Scene(layout, 350, 350));
         stage.show();
     }
 
     public static void main(String[] args) {
-        launch();
+        launch(args);
     }
 }
